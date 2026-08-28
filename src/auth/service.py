@@ -1,5 +1,6 @@
 from datetime import datetime, timezone, timedelta
 
+from auth.mail import send_otp_email
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,8 +34,7 @@ async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
     await db.commit()
     await db.refresh(user)
 
-    # TODO: ganti print ini dengan pengiriman email beneran (belum ada email service)
-    print(f"[DEV ONLY] OTP untuk {user.email}: {otp_code}")
+    await send_otp_email(user.email, otp_code)
 
     return user
 
