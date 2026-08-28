@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.models import User
 from src.auth.schemas import UserCreate
-from src.auth.exceptions import EmailAlreadyRegistered
-from src.auth.utils import hash_password
+from src.auth.exceptions import EmailAlreadyRegistered, InvalidCredentials
+from src.auth.utils import hash_password, verify_password
 
 async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
     result = await db.execute(select(User).where(User.email == user_in.email))
@@ -19,4 +19,11 @@ async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
     await db.commit()
     await db.refresh(user)
 
+    return user
+
+async def authenticate_user(db: AsyncSession, email: str, password: str) -> User:
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if user is None or not verify_password(password, user.hashed_password):
+        raise InvalidCredentials()
     return user

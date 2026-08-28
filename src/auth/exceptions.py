@@ -3,3 +3,6 @@ class AuthException(Exception):
 
 class EmailAlreadyRegistered(AuthException):
     pass
+
+class InvalidCredentials(AuthException):
+    pass
