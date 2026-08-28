@@ -6,3 +6,12 @@ class EmailAlreadyRegistered(AuthException):
 
 class InvalidCredentials(AuthException):
     pass
+
+class InvalidOTP(AuthException):
+    pass
+
+class OTPExpired(AuthException):
+    pass
+
+class UserNotVerified(AuthException):
+    pass

@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    otp_expire_minutes: int = 10
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -9,6 +9,7 @@ class UserCreate(BaseModel):
 class UserRead(BaseModel):
     id: int
     email: EmailStr
+    is_verified: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -20,3 +21,7 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "Bearer"
+
+class OTPVerify(BaseModel):
+    email: EmailStr
+    otp_code: str

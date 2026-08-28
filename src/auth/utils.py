@@ -1,4 +1,5 @@
 import jwt
+import secrets
 
 from datetime import datetime, timezone, timedelta
 from pwdlib import PasswordHash
@@ -22,3 +23,6 @@ def create_refresh_token(subject: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
     payload = {"sub": subject, "exp": expire, "type": "refresh"}
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+def generate_otp() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
