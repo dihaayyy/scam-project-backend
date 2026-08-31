@@ -22,6 +22,6 @@ async def send_otp_email(email: str, otp_code: str) -> None:
         subject="Your OTP Code",
         recipients=[email],
         body=f"<p>Your OTP code is: <b>{otp_code}</b></p>",
-        subtype="MessageType.html",
+        subtype="html",
     )
     await fm.send_message(message)

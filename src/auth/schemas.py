@@ -21,6 +21,7 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "Bearer"
+    description: str = "User is logged in successfully."
 
 class OTPVerify(BaseModel):
     email: EmailStr
