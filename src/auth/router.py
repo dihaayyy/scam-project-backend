@@ -7,10 +7,30 @@ from src.auth.exceptions import (
     InvalidCredentials,
     InvalidOTP,
     OTPExpired,
+    UserAlreadyVerified,
+    UserNotFound,
     UserNotVerified,
 )
-from src.auth.schemas import OTPVerify, Token, UserLogin, UserRead, UserCreate
-from src.auth.service import authenticate_user, create_user, verify_otp
+from src.auth.schemas import (
+    MessageResponse, 
+    OTPVerify, 
+    Token, 
+    UserLogin, 
+    UserRead, 
+    UserCreate, 
+    ResendOTPRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    )
+from src.auth.service import (
+    authenticate_user, 
+    create_user,
+    verify_otp, 
+    resend_otp,
+    request_password_reset,
+    reset_password
+)
+    
 from src.database import get_db
 from src.config import settings
 
@@ -71,3 +91,40 @@ async def login(credentials: UserLogin, response: Response, db: AsyncSession = D
         max_age=settings.refresh_token_expire_days * 24 * 60 * 60
     )
     return Token(access_token=access_token)
+
+@router.post("/resend-otp", response_model=MessageResponse)
+async def resend_otp_endpoint(payload: ResendOTPRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        await resend_otp(db, payload.email)
+    except UserNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+    except UserAlreadyVerified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is already verified."
+        )
+    return MessageResponse(message="OTP has been resent successfully.")
+
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    await request_password_reset(db, payload.email)
+    return MessageResponse(message="If the email is registered and verified, a password reset OTP has been sent.")
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password_endpoint(payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        await reset_password(db, payload.email, payload.otp_code, payload.new_password)
+    except InvalidOTP:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OTP code."
+        )
+    except OTPExpired:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP code has expired."
+        )
+    return MessageResponse(message="Password has been reset successfully.")

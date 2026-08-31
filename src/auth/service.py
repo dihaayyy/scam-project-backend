@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth.mail import send_otp_email
+from src.auth.mail import send_otp_email, send_password_reset_email
 from src.config import settings
 from src.auth.models import User
 from src.auth.schemas import UserCreate
@@ -12,7 +12,9 @@ from src.auth.exceptions import (
     InvalidCredentials,
     InvalidOTP,
     OTPExpired,
+    UserNotFound,
     UserNotVerified,
+    UserAlreadyVerified,
 )
 from src.auth.utils import generate_otp, hash_password, verify_password
 
@@ -64,3 +66,53 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> User
     if not user.is_verified:
         raise UserNotVerified()
     return user
+
+async def resend_otp(db: AsyncSession, email: str) -> None:
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise UserNotFound()
+    if user.is_verified:
+        raise UserAlreadyVerified()
+
+    otp_code = generate_otp()
+    otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expire_minutes)
+
+    user.otp_code = otp_code
+    user.otp_expires_at = otp_expires_at
+    await db.commit()
+
+    await send_otp_email(user.email, otp_code)
+
+async def request_password_reset(db: AsyncSession, email: str) -> None:
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user is None or not user.is_verified:
+        return
+
+    otp_code = generate_otp()
+    otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expire_minutes)
+
+    user.otp_code = otp_code
+    user.otp_expires_at = otp_expires_at
+    await db.commit()
+
+    await send_password_reset_email(user.email, otp_code)
+
+async def reset_password(db: AsyncSession, email: str, otp_code: str, new_password: str) -> None:
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user is None or user.otp_code != otp_code:
+        raise InvalidOTP()
+
+    if user.otp_expires_at is None or datetime.now(timezone.utc) > user.otp_expires_at:
+        raise OTPExpired()
+
+    user.hashed_password = hash_password(new_password)
+    user.otp_code = None
+    user.otp_expires_at = None
+    await db.commit()
+                                          

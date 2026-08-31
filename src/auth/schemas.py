@@ -19,10 +19,25 @@ class UserLogin(BaseModel):
     password: str
 
 class Token(BaseModel):
+    description: str = "User is logged in successfully."
     access_token: str
     token_type: str = "Bearer"
-    description: str = "User is logged in successfully."
 
 class OTPVerify(BaseModel):
     email: EmailStr
     otp_code: str
+
+class ResendOTPRequest(BaseModel):
+    email: EmailStr
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp_code: str
+    new_password: str
+
+class MessageResponse(BaseModel):
+    message: str
+

@@ -15,3 +15,9 @@ class OTPExpired(AuthException):
 
 class UserNotVerified(AuthException):
     pass
+
+class UserNotFound(AuthException):
+    pass
+
+class UserAlreadyVerified(AuthException):
+    pass

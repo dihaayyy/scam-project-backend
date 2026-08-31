@@ -25,3 +25,12 @@ async def send_otp_email(email: str, otp_code: str) -> None:
         subtype="html",
     )
     await fm.send_message(message)
+
+async def send_password_reset_email(email: str, otp_code: str) -> None:
+    message = MessageSchema(
+        subject="Password Reset Request",
+        recipients=[email],
+        body=f"<p>Your password reset OTP code is: <b>{otp_code}</b></p>",
+        subtype="html",
+    )
+    await fm.send_message(message)
