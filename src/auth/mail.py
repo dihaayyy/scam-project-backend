@@ -9,10 +9,10 @@ conf = ConnectionConfig(
     MAIL_PORT=settings.mail_port,
     MAIL_SERVER=settings.mail_server,
     MAIL_FROM_NAME=settings.mail_from_name,
-    MAIL_STARTTLS=True,
+    MAIL_STARTTLS=False,
     MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True,
+    USE_CREDENTIALS=False,
+    VALIDATE_CERTS=False,
 )
 
 fm = FastMail(conf)

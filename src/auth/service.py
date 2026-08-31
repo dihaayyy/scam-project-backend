@@ -1,9 +1,9 @@
 from datetime import datetime, timezone, timedelta
 
-from auth.mail import send_otp_email
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.auth.mail import send_otp_email
 from src.config import settings
 from src.auth.models import User
 from src.auth.schemas import UserCreate
