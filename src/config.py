@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     mail_server: str
     mail_from_name: str = "Scam Project"
 
+    cors_origins: str = "http://localhost:3000"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
