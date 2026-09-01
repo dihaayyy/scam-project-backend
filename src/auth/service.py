@@ -27,6 +27,7 @@ async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
     otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expire_minutes)
 
     user = User(
+        name = user_in.name,
         email=user_in.email,
         hashed_password=hash_password(user_in.password),
         otp_code=otp_code,

@@ -1,3 +1,5 @@
+from src.auth.dependencies import get_current_user
+from src.auth.models import User
 from fastapi import APIRouter, status, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -128,3 +130,7 @@ async def reset_password_endpoint(payload: ResetPasswordRequest, db: AsyncSessio
             detail="OTP code has expired."
         )
     return MessageResponse(message="Password has been reset successfully.")
+
+@router.get("/me", response_model=UserRead)
+async def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
