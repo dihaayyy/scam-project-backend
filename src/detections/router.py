@@ -1,4 +1,7 @@
-from fastapi import APIRouter, File, HTTPException, UploadFile, status, Depends
+import math
+
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status, Depends
+from src.pagination import Page
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.detections.schemas import DetectionResult, TextDetectionRequest
@@ -27,12 +30,17 @@ async def detect_image_endpoint(
     image_bytes = await file.read()
     return await detect_image(db, current_user.id, image_bytes)
 
-@router.get("/history", response_model=list[DetectionResult])
+@router.get("/history", response_model=Page[DetectionResult])
 async def get_history_endpoint(
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    return await get_history(db, current_user.id)
+    items, total = await get_history(db, current_user.id, page, size)
+    total_pages = math.ceil(total / size) if total > 0 else 0
+
+    return Page(items=items, total=total, page=page, size=size, total_pages=total_pages)
 
 @router.get("/history/{detection_id}", response_model=DetectionResult)
 async def get_detection_by_id_endpoint(

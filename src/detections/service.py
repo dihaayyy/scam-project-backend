@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.detections.models import Detection
@@ -39,11 +39,24 @@ async def detect_image(db: AsyncSession, user_id: int, image_bytes: bytes) -> De
 
     return detection
 
-async def get_history(db: AsyncSession, user_id: int) -> list[Detection]:
-    result = await db.execute(
-        select(Detection).where(Detection.user_id == user_id).order_by(Detection.created_at.desc())
+async def get_history(db: AsyncSession, user_id: int, page: int, size: int ) -> tuple[list[Detection], int]:
+    offset = (page - 1) * size
+
+    count_result = await db.execute(
+        select(func.count()).select_from(Detection).where(Detection.user_id == user_id)   
     )
-    return list(result.scalars().all())
+    total = count_result.scalar_one()
+
+    result = await db.execute(
+        select(Detection)
+        .where(Detection.user_id == user_id)
+        .order_by(Detection.created_at.desc())
+        .offset(offset)
+        .limit(size)
+    )
+    items = list(result.scalars().all())
+
+    return items, total
 
 async def get_detection(db: AsyncSession, user_id: int, detection_id: int) -> Detection:
     result = await db.execute(
