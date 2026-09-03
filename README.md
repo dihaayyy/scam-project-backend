@@ -171,5 +171,5 @@ src/
 
 - ✅ Autentikasi lengkap (register, verifikasi OTP, login, resend OTP, lupa password)
 - ✅ Deteksi scam dari teks (model ML asli sudah terpasang)
+- ✅ Automated testing
 - 🚧 Deteksi scam dari gambar (OCR belum terintegrasi, masih pakai placeholder)
-- 🚧 Automated testing (belum ada)
