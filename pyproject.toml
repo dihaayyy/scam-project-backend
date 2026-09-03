@@ -27,3 +27,32 @@ scam-project = "scam_project:main"
 [build-system]
 requires = ["uv_build>=0.12.6,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["src/tests"]
+addopts = "-v"
+
+[tool.coverage.run]
+concurrency = ["thread", "greenlet"]
+omit = [
+    "src/tests/*",
+    "src/migrations/*",
+    "src/scam_project/*",
+    "main.py",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
