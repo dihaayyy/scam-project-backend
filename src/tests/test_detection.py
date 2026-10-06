@@ -15,8 +15,14 @@ def mock_classifier(monkeypatch):
     async def fake_extract(image_bytes: bytes) -> str:
         return "teks hasil ocr palsu"
 
+    async def fake_classify_url(url: str) -> ClassificationResult:
+        return ClassificationResult(
+            verdict="scam", confidence_score=0.91, category="phishing"
+        )
+
     monkeypatch.setattr("src.detections.service.classify_text", fake_classify)
     monkeypatch.setattr("src.detections.service.extract_text_from_image", fake_extract)
+    monkeypatch.setattr("src.detections.service.classify_url", fake_classify_url)
 
 
 # ---------------------- POST /detection/text ----------------------
@@ -40,6 +46,42 @@ async def test_detect_text_sukses(client, auth_headers):
     assert body["input_type"] == "text"
     assert body["input_text"].startswith("Selamat!")
     assert "id" in body
+
+
+# ---------------------- POST /detection/url ----------------------
+
+async def test_detect_url_butuh_login(client):
+    resp = await client.post("/detection/url", json={"url": "http://contoh.xyz"})
+    assert resp.status_code in (401, 403)
+
+
+async def test_detect_url_sukses(client, auth_headers):
+    resp = await client.post(
+        "/detection/url",
+        json={"url": "  http://paypal-secure-login.verify-account.xyz/signin  "},
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["input_type"] == "url"
+    assert body["input_text"] == "http://paypal-secure-login.verify-account.xyz/signin"
+    assert body["verdict"] == "scam"
+    assert body["category"] == "phishing"
+
+
+async def test_detect_url_kosong_ditolak_422(client, auth_headers):
+    resp = await client.post("/detection/url", json={"url": ""}, headers=auth_headers)
+    assert resp.status_code == 422
+
+
+async def test_detect_url_muncul_di_history(client, auth_headers):
+    await client.post("/detection/url", json={"url": "http://contoh.xyz"}, headers=auth_headers)
+
+    resp = await client.get("/detection/history", headers=auth_headers)
+    items = resp.json()["items"]
+    assert len(items) == 1
+    assert items[0]["input_type"] == "url"
 
 
 # ---------------------- GET /detection/history ----------------------

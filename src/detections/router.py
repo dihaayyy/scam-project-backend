@@ -4,11 +4,11 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status, D
 from src.pagination import Page
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.detections.schemas import DetectionResult, TextDetectionRequest
+from src.detections.schemas import DetectionResult, TextDetectionRequest, UrlDetectionRequest
 from src.auth.models import User
 from src.auth.dependencies import get_current_user
 from src.database import get_db
-from src.detections.service import detect_image, detect_text, get_history, get_detection, delete_detection
+from src.detections.service import detect_image, detect_text, detect_url, get_history, get_detection, delete_detection
 from src.detections.exceptions import DetectionNotFound
 
 router = APIRouter(prefix="/detection", tags=["detection"])
@@ -20,6 +20,14 @@ async def detect_text_endpoint(
     db: AsyncSession = Depends(get_db)
 ):
     return await detect_text(db, current_user.id, payload.text)
+
+@router.post("/url", response_model=DetectionResult, status_code=status.HTTP_201_CREATED)
+async def detect_url_endpoint(
+    payload: UrlDetectionRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    return await detect_url(db, current_user.id, payload.url)
 
 @router.post("/image", response_model=DetectionResult, status_code=status.HTTP_201_CREATED)
 async def detect_image_endpoint(

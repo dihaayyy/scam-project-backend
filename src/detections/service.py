@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.detections.models import Detection
 from src.detections.exceptions import DetectionNotFound
-from src.detections.ml_client import classify_text, extract_text_from_image
+from src.detections.ml_client import classify_text, classify_url, extract_text_from_image
 
 async def detect_text(db: AsyncSession, user_id: int, text: str) -> Detection:
     result = await classify_text(text)
@@ -12,6 +12,24 @@ async def detect_text(db: AsyncSession, user_id: int, text: str) -> Detection:
         user_id = user_id,
         input_type = "text",
         input_text = text,
+        verdict = result.verdict,
+        confidence_score = result.confidence_score,
+        category = result.category
+    )
+    db.add(detection)
+    await db.commit()
+    await db.refresh(detection)
+
+    return detection
+
+async def detect_url(db: AsyncSession, user_id: int, url: str) -> Detection:
+    url = url.strip()
+    result = await classify_url(url)
+
+    detection = Detection(
+        user_id = user_id,
+        input_type = "url",
+        input_text = url,
         verdict = result.verdict,
         confidence_score = result.confidence_score,
         category = result.category
