@@ -143,6 +143,67 @@ async def test_login_email_tidak_terdaftar_ditolak_401(client):
     assert resp.status_code == 401
 
 
+# ---------------------- REFRESH & LOGOUT ----------------------
+
+async def _login_refresh_cookie(client, registered_user, db_session) -> str:
+    registered_user.is_verified = True
+    await db_session.commit()
+
+    resp = await client.post(
+        "/auth/login",
+        json={"email": registered_user.email, "password": REGISTER_PAYLOAD["password"]},
+    )
+    return resp.cookies["refresh_token"]
+
+
+async def test_refresh_sukses_mengembalikan_access_token_baru(client, registered_user, db_session):
+    refresh_token = await _login_refresh_cookie(client, registered_user, db_session)
+
+    # cookie secure tidak dikirim otomatis oleh httpx ke http://test, jadi dikirim manual
+    resp = await client.post("/auth/refresh", headers={"Cookie": f"refresh_token={refresh_token}"})
+
+    assert resp.status_code == 200
+    access_token = resp.json()["access_token"]
+    assert "refresh_token" in resp.cookies
+
+    me = await client.get("/auth/me", headers={"Authorization": f"Bearer {access_token}"})
+    assert me.status_code == 200
+    assert me.json()["email"] == registered_user.email
+
+
+async def test_refresh_tanpa_cookie_ditolak_401(client):
+    resp = await client.post("/auth/refresh")
+    assert resp.status_code == 401
+
+
+async def test_refresh_token_ngawur_ditolak_401(client):
+    resp = await client.post("/auth/refresh", headers={"Cookie": "refresh_token=token-palsu"})
+    assert resp.status_code == 401
+
+
+async def test_refresh_pakai_access_token_ditolak_401(client, registered_user, db_session):
+    registered_user.is_verified = True
+    await db_session.commit()
+
+    resp = await client.post(
+        "/auth/login",
+        json={"email": registered_user.email, "password": REGISTER_PAYLOAD["password"]},
+    )
+    access_token = resp.json()["access_token"]
+
+    resp = await client.post("/auth/refresh", headers={"Cookie": f"refresh_token={access_token}"})
+    assert resp.status_code == 401
+
+
+async def test_logout_menghapus_cookie_refresh(client):
+    resp = await client.post("/auth/logout")
+
+    assert resp.status_code == 200
+    set_cookie = resp.headers["set-cookie"]
+    assert "refresh_token=" in set_cookie
+    assert "Max-Age=0" in set_cookie
+
+
 # ---------------------- GET /auth/me ----------------------
 
 async def test_me_tanpa_token_ditolak(client):

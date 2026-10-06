@@ -1,6 +1,6 @@
 from src.auth.dependencies import get_current_user
 from src.auth.models import User
-from fastapi import APIRouter, status, Depends, HTTPException, Response
+from fastapi import APIRouter, Cookie, status, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.utils import create_access_token, create_refresh_token
@@ -25,7 +25,8 @@ from src.auth.schemas import (
     ResetPasswordRequest,
     )
 from src.auth.service import (
-    authenticate_user, 
+    authenticate_user,
+    authenticate_refresh_token,
     create_user,
     verify_otp, 
     resend_otp,
@@ -38,6 +39,20 @@ from src.config import settings
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+REFRESH_COOKIE_OPTIONS = {
+    "key": "refresh_token",
+    "httponly": True,
+    "secure": True,
+    "samesite": "strict",
+}
+
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    response.set_cookie(
+        value=refresh_token,
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
+        **REFRESH_COOKIE_OPTIONS,
+    )
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
@@ -81,18 +96,32 @@ async def login(credentials: UserLogin, response: Response, db: AsyncSession = D
             detail="Please verify your account via OTP first."
         )
 
-    access_token = create_access_token(subject=str(user.id)) 
-    refresh_token = create_refresh_token(subject=str(user.id)) 
-
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        max_age=settings.refresh_token_expire_days * 24 * 60 * 60
-    )
+    access_token = create_access_token(subject=str(user.id))
+    _set_refresh_cookie(response, create_refresh_token(subject=str(user.id)))
     return Token(access_token=access_token)
+
+@router.post("/refresh", response_model=Token)
+async def refresh(
+    response: Response,
+    refresh_token: str | None = Cookie(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        user = await authenticate_refresh_token(db, refresh_token)
+    except InvalidCredentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has expired. Please log in again."
+        )
+
+    access_token = create_access_token(subject=str(user.id))
+    _set_refresh_cookie(response, create_refresh_token(subject=str(user.id)))
+    return Token(access_token=access_token)
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout(response: Response):
+    response.delete_cookie(**REFRESH_COOKIE_OPTIONS)
+    return MessageResponse(message="Logged out successfully.")
 
 @router.post("/resend-otp", response_model=MessageResponse)
 async def resend_otp_endpoint(payload: ResendOTPRequest, db: AsyncSession = Depends(get_db)):

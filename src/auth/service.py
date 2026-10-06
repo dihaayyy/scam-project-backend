@@ -1,5 +1,6 @@
 from datetime import datetime, timezone, timedelta
 
+import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,6 +67,25 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> User
         raise InvalidCredentials()
     if not user.is_verified:
         raise UserNotVerified()
+    return user
+
+async def authenticate_refresh_token(db: AsyncSession, refresh_token: str | None) -> User:
+    if not refresh_token:
+        raise InvalidCredentials()
+
+    try:
+        payload = jwt.decode(refresh_token, settings.secret_key, algorithms=[settings.algorithm])
+    except jwt.PyJWTError:
+        raise InvalidCredentials()
+
+    user_id = payload.get("sub")
+    if payload.get("type") != "refresh" or user_id is None:
+        raise InvalidCredentials()
+
+    result = await db.execute(select(User).where(User.id == int(user_id)))
+    user = result.scalar_one_or_none()
+    if user is None or not user.is_verified:
+        raise InvalidCredentials()
     return user
 
 async def resend_otp(db: AsyncSession, email: str) -> None:
