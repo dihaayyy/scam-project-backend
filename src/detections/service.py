@@ -1,8 +1,14 @@
+import hashlib
+
+from datetime import datetime, timedelta, timezone
+from fastapi import Request
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.detections.models import Detection
-from src.detections.exceptions import DetectionNotFound
+from src.config import settings
+from src.detections.models import Detection, GuestUsage
+from src.detections.exceptions import DetectionNotFound, GuestLimitReached
 from src.detections.ml_client import classify_text, classify_url, extract_text_from_image
 
 async def detect_text(db: AsyncSession, user_id: int, text: str) -> Detection:
@@ -91,3 +97,37 @@ async def delete_detection(db: AsyncSession, user_id: int, detection_id: int) ->
     detection = await get_detection(db, user_id, detection_id)
     await db.delete(detection)
     await db.commit()
+
+def get_guest_identifier(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        ip = forwarded.split(",")[0].strip()
+    elif request.client is not None:
+        ip = request.client.host
+    else:
+        ip = "unknown"
+    return hashlib.sha256(ip.encode()).hexdigest()
+
+async def detect_text_guest(db: AsyncSession, identifier: str, text: str) -> dict:
+    now = datetime.now(timezone.utc)
+    usage = await db.get(GuestUsage, identifier, with_for_update=True)
+
+    if usage is None:
+        usage = GuestUsage(identifier=identifier, count=0, window_start=now)
+        db.add(usage)
+    elif now - usage.window_start > timedelta(hours=settings.guest_limit_window_hours):
+        usage.count = 0
+        usage.window_start = now
+        
+    if usage.count >= settings.guest_detection_limit:
+        raise GuestLimitReached()
+
+    result = await classify_text(text)
+    usage.count += 1
+    await db.commit()
+
+    return {
+        "id": None, "input_type": "text", "input_text": text, "extracted_text": None,
+        "verdict": result.verdict, "confidence_score": result.confidence_score,
+        "category": result.category, "created_at": now,
+    }

@@ -4,3 +4,6 @@ class DetectionException(Exception):
 class DetectionNotFound(DetectionException):
     pass
 
+class GuestLimitReached(DetectionException):
+    pass
+

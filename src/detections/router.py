@@ -1,25 +1,35 @@
 import math
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status, Depends
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status, Depends, Request
 from src.pagination import Page
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.detections.schemas import DetectionResult, TextDetectionRequest, UrlDetectionRequest
 from src.auth.models import User
-from src.auth.dependencies import get_current_user
+from src.auth.dependencies import get_current_user, get_optional_user
 from src.database import get_db
-from src.detections.service import detect_image, detect_text, detect_url, get_history, get_detection, delete_detection
-from src.detections.exceptions import DetectionNotFound
+from src.detections.service import detect_image, detect_text, detect_text_guest, detect_url, get_history, get_guest_identifier, get_detection, delete_detection
+from src.detections.exceptions import DetectionNotFound, GuestLimitReached
 
 router = APIRouter(prefix="/detection", tags=["detection"])
 
 @router.post("/text", response_model=DetectionResult, status_code=status.HTTP_201_CREATED)
 async def detect_text_endpoint(
     payload: TextDetectionRequest,
-    current_user: User = Depends(get_current_user),
+    request: Request,
+    current_user: User | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db)
 ):
-    return await detect_text(db, current_user.id, payload.text)
+    if current_user is not None:
+        return await detect_text(db, current_user.id, payload.text)
+
+    try:
+        return await detect_text_guest(db, get_guest_identifier(request), payload.text)
+    except GuestLimitReached:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "GUEST_LIMIT_REACHED", "message": "Batas deteksi gratis habis. Silakan login."},
+        )
 
 @router.post("/url", response_model=DetectionResult, status_code=status.HTTP_201_CREATED)
 async def detect_url_endpoint(

@@ -28,4 +28,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-settings = Settings()
+    guest_detection_limit: int = 3
+    guest_limit_window_hours: int = 24 
+
+settings = Settings()  #type: ignore[call-arg]

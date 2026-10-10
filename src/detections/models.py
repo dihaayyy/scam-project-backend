@@ -17,3 +17,9 @@ class Detection(Base):
     category: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+class GuestUsage(Base):
+    __tablename__ = "guest_usages"
+
+    identifier: Mapped[str] = mapped_column(String(64), primary_key=True)
+    count: Mapped[int] = mapped_column(default=0)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
