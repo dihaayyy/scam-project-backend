@@ -9,7 +9,7 @@ class UrlDetectionRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
 
 class DetectionResult(BaseModel):
-    id: int
+    id: int | None
     input_type: Literal["text", "image", "url"]
     input_text: str | None
     extracted_text: str | None
