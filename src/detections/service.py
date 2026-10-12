@@ -108,6 +108,21 @@ def get_guest_identifier(request: Request) -> str:
         ip = "unknown"
     return hashlib.sha256(ip.encode()).hexdigest()
 
+async def _consume_guest_quota(db: AsyncSession, identifier: str, now: datetime) -> GuestUsage:
+    usage = await db.get(GuestUsage, identifier, with_for_update=True)
+
+    if usage is None:
+        usage = GuestUsage(identifier=identifier, count=0, window_start=now)
+        db.add(usage)
+    elif now - usage.window_start > timedelta(hours=settings.guest_limit_window_hours):
+        usage.count = 0
+        usage.window_start = now
+
+    if usage.count >= settings.guest_detection_limit:
+        raise GuestLimitReached()
+
+    return usage
+
 async def detect_text_guest(db: AsyncSession, identifier: str, text: str) -> dict:
     now = datetime.now(timezone.utc)
     usage = await db.get(GuestUsage, identifier, with_for_update=True)
@@ -128,6 +143,21 @@ async def detect_text_guest(db: AsyncSession, identifier: str, text: str) -> dic
 
     return {
         "id": None, "input_type": "text", "input_text": text, "extracted_text": None,
+        "verdict": result.verdict, "confidence_score": result.confidence_score,
+        "category": result.category, "created_at": now,
+    }
+
+async def detect_url_guest(db: AsyncSession, identifier: str, url: str) -> dict:
+    now = datetime.now(timezone.utc)
+    url = url.strip()
+    usage = await _consume_guest_quota(db, identifier, now)
+
+    result = await classify_url(url)
+    usage.count += 1
+    await db.commit()
+
+    return {
+        "id": None, "input_type": "url", "input_text": url, "extracted_text": None,
         "verdict": result.verdict, "confidence_score": result.confidence_score,
         "category": result.category, "created_at": now,
     }
